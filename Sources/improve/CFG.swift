@@ -1,6 +1,19 @@
 /// A Control Flow Graph is a DAG that represents the flow of information
 /// through a program.
 class CFGNode: Hashable {
+    enum Kind {
+        /// The Entry CFG node.
+        case entry
+        
+        /// A standard node representing a point in a program.
+        case standard
+        
+        /// The exit node of a program.
+        case exit
+        
+        /// An error node, as the result of failing an assertion.
+        case error
+    }
     struct Transition: Hashable {
         let node: CFGNode
         let assumption: BExp?
@@ -18,14 +31,16 @@ class CFGNode: Hashable {
     }
     var successors = Set<Transition>()
     let stmt: Stmt?
+    private(set) var kind: Kind
 
     static func entry() -> CFGNode {
-        return CFGNode(stmt: nil)
+        return CFGNode(stmt: nil, kind: .entry)
     }
 
     static func program(_ stmt: Stmt) -> CFGNode {
         let entry = CFGNode.entry()
-        entry.addSuccessor(stmt)
+        let exit = entry.addSuccessor(stmt)
+        exit.kind = .exit
         return entry
     }
 
@@ -37,7 +52,7 @@ class CFGNode: Hashable {
         switch stmt {
         case let .assert(bexp):
             let passNode = CFGNode(stmt: stmt)
-            let errorNode = CFGNode(stmt: nil)
+            let errorNode = CFGNode(stmt: nil, kind: .error)
             addSuccessor(passNode, assumption: bexp)
             addSuccessor(errorNode, assumption: .not(bexp))
             return passNode
@@ -66,8 +81,8 @@ class CFGNode: Hashable {
             // Move into the body assuming the condition
             addSuccessor(bodyNode, assumption: cond)
 
-            // Move back from the body assuming the condition
-            bodyNode.addSuccessor(self, assumption: cond)
+            // Move back from the body, making no extra assumptions
+            bodyNode.addSuccessor(self, assumption: nil)
 
             // Exit the loop body assuming the condition no longer holds
             addSuccessor(exitNode, assumption: .not(cond))
@@ -82,11 +97,12 @@ class CFGNode: Hashable {
         }
     }
 
-    init(stmt: Stmt?) {
+    init(stmt: Stmt?, kind: Kind = .standard) {
         self.stmt = stmt
+        self.kind = kind
     }
 
-    private func addSuccessor(_ successor: CFGNode, assumption: BExp?) {
+    func addSuccessor(_ successor: CFGNode, assumption: BExp?) {
         successors.insert(Transition(node: successor, assumption: assumption))
     }
 
