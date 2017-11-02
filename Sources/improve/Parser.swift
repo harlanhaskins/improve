@@ -2,7 +2,7 @@ enum ParseError: Error {
     case expectedIExp
     case expectedBExp
     case expectedStmt
-    case unexpected(Token.Kind, expected: String)
+    case unexpected(Token, expected: String)
     case unexpectedEOF
 }
 
@@ -22,28 +22,23 @@ class Parser {
         index += 1
     }
 
-    func span(_ range1: SourceRange?, _ range2: SourceRange?) -> SourceRange? {
-        guard let range1 = range1, let range2 = range2 else { return nil }
-        return SourceRange(start: range1.start, end: range2.start)
-    }
-
     @discardableResult
-    func consume(_ kind: Token.Kind) throws -> Token {
+    func consume(_ kind: Token) throws -> Token {
         guard let tok = currentToken else { throw ParseError.unexpectedEOF }
-        guard tok.kind == kind else {
-            throw ParseError.unexpected(tok.kind, expected: "\(kind)")
+        guard tok == kind else {
+            throw ParseError.unexpected(tok, expected: "\(kind)")
         }
         advance()
         return tok
     }
 
-    func parseStmt() throws -> Node<Stmt> {
+    func parseStmt() throws -> Stmt {
         guard let tok = currentToken else { throw ParseError.unexpectedEOF }
-        let lhs: Node<Stmt>
-        switch tok.kind {
+        let lhs: Stmt
+        switch tok {
         case .skip:
             advance()
-            lhs = Node(kind: .skip, range: tok.range)
+            lhs = .skip
         case .identifier(_):
             lhs = try parseAssign()
         case .if:
@@ -53,139 +48,127 @@ class Parser {
         case .assert:
             lhs = try parseAssert()
         default:
-            throw ParseError.unexpected(tok.kind, expected: "statement")
+            throw ParseError.unexpected(tok, expected: "statement")
         }
-        if case .semicolon? = currentToken?.kind {
+        if case .semicolon? = currentToken {
             advance()
             if currentToken == nil {
                 return lhs
             }
             let rhs = try parseStmt()
-            return Node(kind: .seq(lhs, rhs),
-                        range: span(lhs.range, rhs.range))
+            return .seq(lhs, rhs)
         }
         return lhs
     }
 
-    func parseAssign() throws -> Node<Stmt> {
+    func parseAssign() throws -> Stmt {
         guard let tok = currentToken else { throw ParseError.unexpectedEOF }
-        guard case .identifier(let name) = tok.kind else {
-            throw ParseError.unexpected(tok.kind, expected: "identifier")
+        guard case .identifier(let name) = tok else {
+            throw ParseError.unexpected(tok, expected: "identifier")
         }
         try consume(.assignEq)
         let rhs = try parseIExp()
-        return Node(kind: .assign(name, rhs),
-                    range: span(tok.range, rhs.range))
+        return .assign(name, rhs)
     }
 
-    func parseIf() throws -> Node<Stmt> {
-        let ifTok = try consume(.if)
+    func parseIf() throws -> Stmt {
+        try consume(.if)
         try consume(.leftParen)
         let cond = try parseBExp()
         try consume(.rightParen)
         let body = try parseStmt()
         try consume(.else)
         let elseStmt = try parseStmt()
-        return Node(kind: .conditional(cond, body, elseStmt),
-                    range: span(ifTok.range, elseStmt.range))
+        return .conditional(cond, body, elseStmt)
     }
 
-    func parseWhile() throws -> Node<Stmt> {
-        let whileTok = try consume(.while)
+    func parseWhile() throws -> Stmt {
+        try consume(.while)
         try consume(.leftParen)
         let cond = try parseBExp()
         try consume(.rightParen)
         let body = try parseStmt()
-        return Node(kind: .loop(cond, body),
-                    range: span(whileTok.range, body.range))
+        return .loop(cond, body)
     }
 
-    func parseAssert() throws -> Node<Stmt> {
-        let assertTok = try consume(.assert)
+    func parseAssert() throws -> Stmt {
+        try consume(.assert)
         try consume(.leftParen)
         let cond = try parseBExp()
         try consume(.rightParen)
-        return Node(kind: .assert(cond),
-                    range: span(assertTok.range, cond.range))
+        return .assert(cond)
     }
 
-    func parseBExp() throws -> Node<BExp> {
+    func parseBExp() throws -> BExp {
         guard let tok = currentToken else { throw ParseError.unexpectedEOF }
-        let lhs: Node<BExp>
+        let lhs: BExp
         if isStartOfIExp() {
             let lhsIExp = try parseIExp()
             guard let infixTok = currentToken else { throw ParseError.unexpectedEOF }
-            switch infixTok.kind {
+            switch infixTok {
             case .lte:
                 advance()
                 let rhsIExp = try parseIExp()
-                lhs = Node(kind: .lte(lhsIExp, rhsIExp),
-                           range: span(lhsIExp.range, rhsIExp.range))
+                lhs = .lte(lhsIExp, rhsIExp)
             case .eq:
                 advance()
                 let rhsIExp = try parseIExp()
-                lhs = Node(kind: .lte(lhsIExp, rhsIExp),
-                           range: span(lhsIExp.range, rhsIExp.range))
+                lhs = .eq(lhsIExp, rhsIExp)
             default:
-                throw ParseError.unexpected(infixTok.kind, expected: "boolean operator")
+                throw ParseError.unexpected(infixTok, expected: "boolean operator")
             }
-        } else if case .not = tok.kind {
+        } else if case .not = tok {
             advance()
             let rhs = try parseBExp()
-            lhs = Node(kind: .not(rhs),
-                       range: span(tok.range, rhs.range))
+            lhs = .not(rhs)
         } else {
-            throw ParseError.unexpected(tok.kind, expected: "boolean expression")
+            throw ParseError.unexpected(tok, expected: "boolean expression")
         }
-        switch currentToken?.kind {
+        switch currentToken {
         case .and?:
             advance()
             let rhs = try parseBExp()
-            return Node(kind: .and(lhs, rhs),
-                        range: span(lhs.range, rhs.range))
+            return .and(lhs, rhs)
         case .or?:
             advance()
             let rhs = try parseBExp()
-            return Node(kind: .or(lhs, rhs),
-                        range: span(lhs.range, rhs.range))
+            return .or(lhs, rhs)
         default:
             return lhs
         }
     }
 
     func isStartOfIExp() -> Bool {
-        switch currentToken?.kind {
+        switch currentToken {
         case .integer?, .identifier?: return true
         default: return false
         }
     }
 
-    func parseIExp() throws -> Node<IExp> {
+    func parseIExp() throws -> IExp {
         guard let tok = currentToken else {
             throw ParseError.unexpectedEOF
         }
-        let lhs: Node<IExp>
-        switch tok.kind {
+        let lhs: IExp
+        switch tok {
         case .integer(let intVal):
             advance()
-            lhs = Node(kind: .num(intVal), range: tok.range)
+            lhs = .num(intVal)
         case .identifier(let id):
             advance()
-            lhs = Node(kind: .identifier(id), range: tok.range)
+            lhs = .identifier(id)
         default:
-            throw ParseError.unexpected(tok.kind, expected: "expression")
+            throw ParseError.unexpected(tok, expected: "expression")
         }
-        switch currentToken?.kind {
+        switch currentToken {
         case .plus?:
             advance()
             let rhs = try parseIExp()
-            return Node(kind: .plus(lhs, rhs),
-                        range: span(lhs.range, rhs.range))
+            return .plus(lhs, rhs)
         case .minus?:
             advance()
             let rhs = try parseIExp()
-            return Node(kind: .minus(lhs, rhs),
-                        range: span(lhs.range, rhs.range))
+            return .minus(lhs, rhs)
         default:
             return lhs
         }

@@ -1,4 +1,4 @@
-indirect enum IExp {
+indirect enum IExp: CustomStringConvertible {
     // integer literal
     case num(Int)
 
@@ -6,54 +6,63 @@ indirect enum IExp {
     case identifier(String)
 
     // <iexp> + <iexp>
-    case plus(Node<IExp>, Node<IExp>)
+    case plus(IExp, IExp)
 
     // <iexp> - <iexp>
-    case minus(Node<IExp>, Node<IExp>)
-}
+    case minus(IExp, IExp)
 
-struct Node<T> {
-    let kind: T
-    let range: SourceRange?
-
-    init(kind: T, range: SourceRange? = nil) {
-        self.kind = kind
-        self.range = range
+    var description: String {
+        switch self {
+        case let .identifier(name): return name
+        case let .num(i): return i.description
+        case let .plus(e1, e2): return "\(e1) + \(e2)"
+        case let .minus(e1, e2): return "\(e1) - \(e2)"
+        }
     }
 }
 
-indirect enum BExp {
+indirect enum BExp: CustomStringConvertible {
     // <iexp> <= <iexp>
-    case lte(Node<IExp>, Node<IExp>)
+    case lte(IExp, IExp)
 
     // <iexp> == <iexp>
-    case eq(Node<IExp>, Node<IExp>)
+    case eq(IExp, IExp)
 
     // not <bexp>
-    case not(Node<BExp>)
+    case not(BExp)
 
     // <bexp> and <bexp>
-    case and(Node<BExp>, Node<BExp>)
+    case and(BExp, BExp)
 
     // <bexp> or <bexp>
-    case or(Node<BExp>, Node<BExp>)
+    case or(BExp, BExp)
+
+    var description: String {
+        switch self {
+        case let .lte(e1, e2): return "\(e1) <= \(e2)"
+        case let .eq(e1, e2): return "\(e1) == \(e2)"
+        case let .not(e): return "not \(e)"
+        case let .and(e1, e2): return "\(e1) and \(e2)"
+        case let .or(e1, e2): return "\(e1) or \(e2)"
+        }
+    }
 }
 
 indirect enum Stmt {
     case skip
     // <id> := <iexp>
-    case assign(String, Node<IExp>)
+    case assign(String, IExp)
 
     // <stmt> ; <stmt>
-    case seq(Node<Stmt>, Node<Stmt>)
+    case seq(Stmt, Stmt)
 
-    // if (<bexp>) <stmt> else <stmt>
-    case conditional(Node<BExp>, Node<Stmt>, Node<Stmt>)
+    // if (<bexp) <stmt> else <stmt>
+    case conditional(BExp, Stmt, Stmt)
 
-    // while (<bexp>) <stmt>
-    case loop(Node<BExp>, Node<Stmt>)
+    // while (<bexp) <stmt>
+    case loop(BExp, Stmt)
 
-    // assert(<bexp>)
-    case assert(Node<BExp>)
+    // assert(<bexp)
+    case assert(BExp)
 }
 
