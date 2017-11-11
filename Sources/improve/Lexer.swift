@@ -1,7 +1,7 @@
 enum Token: Equatable {
     case identifier(String)
     case integer(Int)
-    case and, or, `if`, `else`, `while`, assert, skip, not
+    case and, or, `if`, `else`, `while`, assert, skip, not, endif, endwhile
     case semicolon, leftParen, rightParen, plus, minus, lte, eq, assignEq
     case unknown(Character)
 
@@ -15,6 +15,8 @@ enum Token: Equatable {
         case "assert": self = .assert
         case "skip": self = .skip
         case "not": self = .not
+        case "endif": self = .endif
+        case "endwhile": self = .endwhile
         default: self = .identifier(identifier)
         }
     }
@@ -28,10 +30,11 @@ enum Token: Equatable {
         case let (.unknown(lhsChar), .unknown(rhsChar)):
             return lhsChar == rhsChar
         case (.and, .and), (.or, .or), (.if, .if), (.else, .else),
-             (.while, .while), (.assert, .assert), (.skip, .skip),
-             (.not, .not), (.semicolon, .semicolon), (.leftParen, .leftParen),
-             (.rightParen, .rightParen), (.plus, .plus), (.minus, .minus),
-             (.lte, .lte), (.eq, .eq), (.assignEq, .assignEq):
+             (.endwhile, .endwhile), (.while, .while), (.assert, .assert),
+             (.skip, .skip), (.not, .not), (.semicolon, .semicolon),
+             (.leftParen, .leftParen),(.rightParen, .rightParen),
+             (.plus, .plus), (.minus, .minus), (.lte, .lte), (.eq, .eq),
+             (.assignEq, .assignEq), (.endif, .endif):
             return true
         default:
             return false
@@ -120,6 +123,7 @@ class Lexer {
             default:
                 break
             }
+            advance()
             return .unknown(char)
         }
     }

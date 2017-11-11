@@ -80,9 +80,11 @@ class CFGNode: Hashable {
 
             // Move into the body assuming the condition
             addSuccessor(bodyNode, assumption: cond)
+            
+            let bodyEnd = bodyNode.addSuccessor(body)
 
             // Move back from the body, making no extra assumptions
-            bodyNode.addSuccessor(self, assumption: nil)
+            bodyEnd.addSuccessor(self, assumption: nil)
 
             // Exit the loop body assuming the condition no longer holds
             addSuccessor(exitNode, assumption: .not(cond))

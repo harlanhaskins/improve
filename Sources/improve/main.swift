@@ -41,9 +41,21 @@ func main() throws {
         let cfg = CFGNode.program(stmt)
         try DOT.serializeCFG(cfg, file: options.file)
     case .printHornClauses:
-        fatalError("unimplemented")
+        let clauseGen = HornClauseGenerator(stmt: stmt)
+        clauseGen.generate()
+        clauseGen.dump()
     case .verify:
-        fatalError("unimplemented")
+        let clauseGen = HornClauseGenerator(stmt: stmt)
+        clauseGen.generate()
+        let output = try Z3Executor.runZ3(file: options.file,
+                                          clauses: clauseGen.clauses,
+                                          variables: clauseGen.variables)
+        switch output {
+        case .satisfiable:
+            print("correct")
+        case .unsatisfiable:
+            print("incorrect")
+        }
     }
 }
 

@@ -22,6 +22,10 @@ indirect enum IExp: CustomStringConvertible {
 }
 
 indirect enum BExp: CustomStringConvertible {
+    // Not spellable in the language
+    case `true`
+    case `false`
+
     // <iexp> <= <iexp>
     case lte(IExp, IExp)
 
@@ -39,6 +43,8 @@ indirect enum BExp: CustomStringConvertible {
 
     var description: String {
         switch self {
+        case .true: return "True"
+        case .false: return "False"
         case let .lte(e1, e2): return "\(e1) <= \(e2)"
         case let .eq(e1, e2): return "\(e1) == \(e2)"
         case let .not(e): return "not \(e)"

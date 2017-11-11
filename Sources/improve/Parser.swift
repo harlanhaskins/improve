@@ -66,6 +66,7 @@ class Parser {
         guard case .identifier(let name) = tok else {
             throw ParseError.unexpected(tok, expected: "identifier")
         }
+        advance()
         try consume(.assignEq)
         let rhs = try parseIExp()
         return .assign(name, rhs)
@@ -79,6 +80,7 @@ class Parser {
         let body = try parseStmt()
         try consume(.else)
         let elseStmt = try parseStmt()
+        try consume(.endif)
         return .conditional(cond, body, elseStmt)
     }
 
@@ -88,6 +90,7 @@ class Parser {
         let cond = try parseBExp()
         try consume(.rightParen)
         let body = try parseStmt()
+        try consume(.endwhile)
         return .loop(cond, body)
     }
 
